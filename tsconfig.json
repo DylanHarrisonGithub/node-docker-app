@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+  },
+  "include": [
+    "./*", 
+    "./package.json",
+    "./public",
+    "./public/*.*"
+  ],
+  "exclude": [
+    "LICENSE", 
+    ".gitignore", 
+    "README.md",
+    "./.github",
+    "./node_modules", 
+    "./dist", 
+    "./client",
+    "./tests",
+    "./tests/*.*", 
+    "dev-cli.js"
+  ]
+}
