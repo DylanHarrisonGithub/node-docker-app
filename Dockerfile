@@ -8,10 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-
-
 # Copy only production files
-COPY package*.json ./
 COPY dist ./dist
 
 # Expose the port

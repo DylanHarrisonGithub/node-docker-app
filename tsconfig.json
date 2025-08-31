@@ -26,6 +26,8 @@
     "./client",
     "./tests",
     "./tests/*.*", 
-    "dev-cli.js"
+    "dev-cli.js",
+    "**/*.test.ts",
+    "**/*.test.js"
   ]
 }
