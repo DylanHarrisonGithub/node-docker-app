@@ -21,12 +21,19 @@ const config = {
     EMAIL: process.env[`${APPNAME}_NODEMAILER_EMAIL`] || '',
     PASSWORD: process.env[`${APPNAME}_NODEMAILER_PASSWORD`] || ''
   },
+  GOOGLE_API_KEY: process.env[`${APPNAME}_GOOGLE_API_KEY`],
   ADMIN_EMAIL: process.env[`${APPNAME}_ADMIN_EMAIL`] || '',
   MAX_HD_SIZE_GB: process.env[`${APPNAME}_MAX_HD_SIZE_GB`] || 20,
   REPOSITORY: {
     URL: process.env[`${APPNAME}_REPO_URL`],
     BRANCH: process.env[`${APPNAME}_REPO_BRANCH`] || 'main',
-    PAT: process.env[`${APPNAME}_REPO_PAT`]
+    PAT: process.env[`${APPNAME}_REPO_PAT`],
+    SECRET: process.env[`${APPNAME}_REPO_SECRET`]
+  },
+  DOCKER: {
+    DOCKER_CONTAINER_NAME: process.env[`${APPNAME}_DOCKER_CONTAINER_NAME`],
+    DOCKER_IMAGE: process.env[`${APPNAME}_DOCKER_IMAGE`],
+    DOCKER_REGISTRY_AUTH: process.env[`${APPNAME}_DOCKER_REGISTRY_AUTH`]
   },
   PROTECTED_FOLDERS: [
     'public',

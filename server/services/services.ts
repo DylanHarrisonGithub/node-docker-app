@@ -5,6 +5,7 @@ import authentication from './authentication/authentication.service';
 import router from './router/router.service';
 import validation from './validation/validation.service';
 import email from './email/email.service';
+import maintenance from './maintenance/maintenance.service';
 
 export type ServicePromise<T=any> = Promise<{
   success: boolean, messages: string[], body?: T
@@ -36,7 +37,8 @@ const services = {
   requestParser: requestParser,
   validation: validation,
   router: router,
-  email: email
+  email: email,
+  maintenance: maintenance
 } satisfies Service;
 
 export default services;
