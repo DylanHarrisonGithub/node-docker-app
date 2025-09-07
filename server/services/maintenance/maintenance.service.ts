@@ -1,3 +1,6 @@
+import * as exec from 'child_process';
+import crypto from 'crypto';
+
 import server from '../../server';
 import { Service, ServicePromise } from '../services';
 
@@ -6,8 +9,6 @@ import config from '../../config/config';
 import file from '../file/file.service';
 import email from '../email/email.service';
 import { User } from '../../definitions/models/User/User';
-
-import crypto from 'crypto';
 
 const maintenance = {
 
@@ -151,6 +152,39 @@ const maintenance = {
         ]
       })) as ServicePromise;
     }
+  },
+
+  setRepoRemote: async (remote?: {url?: string, pat?: string}): ServicePromise => {
+    
+    const { url, pat } = remote || { url: config.REPOSITORY.URL, pat: config.REPOSITORY.PAT };
+    
+    if (!url?.length) {
+      return Promise.resolve({
+        success: false,
+        messages: [
+          'SERVER - SERVICES - MAINTENANCE - Set Repo Remote - Repository URL not configured. Cannot set remote.'
+        ]
+      });
+    }
+
+    try {
+      const res = exec.execSync(`sudo git remote set-url origin https://${pat ? pat + '@' : ''}${url}`);
+      return Promise.resolve({
+        success: true,
+        messages: [
+          'SERVER - SERVICES - MAINTENANCE - Set Repo Remote - Git remote url set to ' + url
+        ]
+      });
+    } catch (e) {
+      return Promise.resolve({
+        success: false,
+        messages: [
+          'SERVER - SERVICES - MAINTENANCE - Set Repo Remote - Failed to set git remote url',
+          (e as any).toString()
+        ]
+      });
+    }
+
   },
 
   dockerUpdate: async (): ServicePromise => {

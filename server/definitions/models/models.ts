@@ -30,10 +30,13 @@ type PSQLConstraint =
   | `DEFAULT ${string}` // For default value constraints
   | `INDEX (${string})`; // For index constraints
 
-type PSQLConstraints = 
-  | `${PSQLConstraint}`
-  | `${PSQLConstraint} ${PSQLConstraint}`
-  | `${PSQLConstraint} ${PSQLConstraint} ${PSQLConstraint}`;
+// this definition is too complicated for typescript to handle
+// type PSQLConstraints = 
+//   | `${PSQLConstraint}`
+//   | `${PSQLConstraint} ${PSQLConstraint}`
+//   | `${PSQLConstraint} ${PSQLConstraint} ${PSQLConstraint}`;
+
+type PSQLConstraints = string;
 
 type PSQLColumnDefinition = `${PostgresDataType}` | `${PostgresDataType} ${PSQLConstraints}`;
 
@@ -49,7 +52,6 @@ export type Model<U extends PSQLTable, V> = {
 export type ModelTypes = {
   User: User,
   Mail: Mail,
-  Contact: Contact,
   Theme: Theme,
 }
 

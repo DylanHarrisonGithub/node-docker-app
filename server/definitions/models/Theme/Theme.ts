@@ -158,8 +158,8 @@ const themeTable = {
 
 const ThemeModel: Model<typeof themeTable, Theme> = {
 
-  fromDB: (dbModel) => { return Object.keys(dbModel).reduce((acc, key) => ({ ...acc, [key]: JSON.parse(dbModel[key]) }), {}) as Theme },
-  toDB: (model) => { return Object.keys(model).reduce((acc, key) => ({ ...acc, [key]: JSON.stringify(model[key]) }), {}) },
+  fromDB: (dbModel) => { return Object.keys(dbModel).reduce((acc, key) => ({ ...acc, [key]: JSON.parse(dbModel[key as keyof typeof dbModel]) }), {}) as Theme },
+  toDB: (model) => { return Object.keys(model).reduce((acc, key) => ({ ...acc, [key]: JSON.stringify(model[key as keyof typeof model]) }), {}) },
 
   db: themeTable,
 

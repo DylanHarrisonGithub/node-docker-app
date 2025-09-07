@@ -1,5 +1,4 @@
 import express from 'express';
-import * as exec from 'child_process';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import fileUpload from 'express-fileupload';
@@ -12,12 +11,69 @@ import config from './server/config/config';
 import file from './server/services/file/file.service';
 
 import { User } from './server/definitions/models/User/User';
-import crypto from 'crypto';
-import email from './server/services/email/email.service';
+
+import maintenance from './server/services/maintenance/maintenance.service';
+import monitoring, { TrafficStats, AbuseDetectionReport } from './server/services/monitoring/monitoring.service';
+
+const stats: TrafficStats = {
+  daily: {},
+  monthly: {}
+};
+
+const trafficThresholds = {
+  maxTotalIngress: 1 * 1024 * 1024 * 1024,    // 1GB per day
+  maxTotalEgress: 1 * 1024 * 1024 * 1024,     // 1GB per day
+  maxIngressPerIp: 100 * 1024 * 1024,    // 100MB per IP per day
+  maxEgressPerIp: 100 * 1024 * 1024,     // 100MB per IP per day
+  maxRequestsPerIp: 10000,   // 10000 requests per IP per day
+  maxRequestsPerSecondPerIp: 50 // 50 requests per second per IP
+};
+
+const intervalObject = {
+  lastPruneTime: 0,
+  lastFullCheckTime: 0
+}
+
+const prevTraffic: {
+  timestamp: number,
+  ip: string | null,
+  requests: number
+  requestsPerSecond: number
+} = {
+  timestamp: 0,
+  ip: null,
+  requests: 0,
+  requestsPerSecond: 0
+};
 
 const app = express();
 
 app.use(cors({ credentials: true }));
+
+app.use(async (req, res, next) => {
+  const monitoringRes = await monitoring.useMonitoring(
+    req, 
+    res,
+    stats, 
+    trafficThresholds,
+    60000,  // 10 minutes
+    360000, // 1 day
+    {
+      daysToKeep: 7,
+      monthsToKeep: 3,
+      ipsToKeep: 1000
+    },
+    intervalObject
+  );
+
+  if (!monitoringRes.success && monitoringRes.body) {
+    console.log('Abuse detected: ', monitoringRes.body);
+  }
+  // console.log('monitoring report: ', monitoringRes);
+  // console.dir(stats, { depth: null });
+  next();
+});
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(fileUpload());
@@ -68,82 +124,32 @@ app.use('/api', async (request: express.Request, response: express.Response) => 
 });
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'client')));
-app.get('/*', (req, res) => res.sendFile(path.resolve(__dirname, './client', 'index.html')))
+// app.get('/{*splat}', (req, res) => res.sendFile(path.resolve(__dirname, './client', 'index.html')))
 
 app.listen(config.PORT || 3000, async () => {
-
-  // full db delete
-  // console.log('db reset is on')
-  // for (const key of Object.keys(server.models)) {
-  //   console.log((await db.table.delete(key)).messages);
-  // }
   
-  // //!!!! uncomment before deploying !!!!
-  // create db tables if they don't already exist
-  for (const key of Object.keys(server.models)) {
-    console.log((await db.table.create(key, (<any>server.models)[key].db)).messages);
-  }
-
-  // add any missing columns to tables
-  let dbtable: { column_name: string, data_type: string }[] | undefined;
-  for (const key of Object.keys(server.models)) {
-    dbtable = (await db.table.read<{ column_name: string, data_type: string }[]>(key)).body;
-    if (dbtable) {
-      let { PRIMARY, ...tabledef } = (<any>server.models)[key].db;
-      for (const tdcolumn of Object.keys(tabledef)) {
-        if (!dbtable!.filter(dbv => dbv.column_name.toLowerCase() === tdcolumn.toLowerCase()).length) {
-          console.log(`Warning: database definition for table ${key} is missing column ${tdcolumn} as defined by this application for ${key} table!`);
-          console.log(`Adding column ${tdcolumn} to table ${key} as defined by this application..`);
-          let res = await db.table.update(key, { add: { [tdcolumn]: tabledef[tdcolumn] }});
-          console.log('here is the result of that..', res.messages)
-        }
-      }
-    }
+  // create database tables if they don't already exist
+  if (config.DATABASE_URL?.length) {
+    console.log(`Building database tables if they don't already exist...`);
+    console.log((await maintenance.dbCreate()).messages);
+  } else {
+    console.log('No database configured, skipping db table creation');
   }
 
   // create a default admin user if none exist
-  const userRes = await db.row.read<User[]>('user');
-  if (!userRes.body?.length) {
-    const admin = {
-      username: 'admin' + Math.random().toString(36).slice(2),
-      email: config.ADMIN_EMAIL,
-      password: 'p' + Math.random().toString(36).slice(2),
-    }
-
-    const salt = crypto.randomBytes(32).toString('hex');
-    const hash = await crypto.pbkdf2Sync(admin.password, salt, 32, 64, 'sha512').toString('hex');
-  
-    const res = await db.row.create('user', { 
-      username: admin.username,
-      email: admin.email,
-      privilege: 'admin', 
-      password: hash, 
-      salt: salt, 
-      avatar: ``,
-      reset: ``,
-      resetstamp: `0`,
-      tries: 0
-    });
-
-    if (res.success) {
-      console.log('Temporary admin account created');
-      console.log(admin);
-      console.log('Please use this account to register a permanent admin account and then delete the temporary one.');
-      console.log(await email(admin.email, 'Temporary Login', `${JSON.stringify(admin)}`));
-    } else {
-      console.log('Error: Failed to create temporary admin account');
-      console.log('Failed attempt produced the following message(s)');
-      console.log(res.messages);
+  if (config.DATABASE_URL?.length) {
+    console.log('Checking if admin user exists...');
+    const userRes = await db.row.read<User[]>('user', { privilege: 'admin' });
+    if (!userRes.body?.length) {
+      console.log('No admin user found. Creating new one')
+      console.log((await maintenance.generateUser('admin')).messages);
     }
   }
 
-
+  // set the git repository remote origin if configured
   if (config.REPOSITORY.URL) {
-    try {
-      const res = exec.execSync(`sudo git remote set-url origin https://${config.REPOSITORY.PAT ? config.REPOSITORY.PAT + '@' : ''}${config.REPOSITORY.URL}`);
-    } catch (e) {
-      console.log(['failed to set git remote url', e])
-    }
+    console.log(`Setting repository remote origin...`);
+    console.log((await maintenance.setRepoRemote()).messages);
   }
 
   console.log('root size: ', await file.getDirectorySize(''));
